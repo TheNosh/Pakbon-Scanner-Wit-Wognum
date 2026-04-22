@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Pakbon Scanner">
+<meta name="theme-color" content="#0f1117">
+<title>Pakbon Scanner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<style>
+  :root {
+    --bg: #0f1117; --surface: #191c27; --surface2: #222636;
+    --accent: #f0c040; --text: #f0ede8; --muted: #7a7d8c;
+    --danger: #e05050; --success: #40c080; --radius: 16px;
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body { background: var(--bg); color: var(--text); font-family: 'Syne', sans-serif; min-height: 100dvh; overflow-x: hidden; padding-top: var(--safe-top); padding-bottom: var(--safe-bottom); }
+
+  .header { position: sticky; top: 0; z-index: 100; background: var(--bg); padding: 16px 20px 12px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(240,192,64,0.12); }
+  .logo { display: flex; align-items: center; gap: 10px; }
+  .logo-icon { width: 36px; height: 36px; background: var(--accent); border-radius: 10px; display: grid; place-items: center; }
+  .logo-icon svg { width: 20px; height: 20px; }
+  .logo-title { font-size: 18px; font-weight: 800; letter-spacing: -0.5px; }
+  .logo-sub { font-size: 10px; font-family: 'DM Mono', monospace; color: var(--muted); letter-spacing: 0.5px; text-transform: uppercase; }
+  .settings-btn { width: 36px; height: 36px; background: var(--surface2); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; display: grid; place-items: center; cursor: pointer; color: var(--muted); transition: all 0.2s; }
+  .settings-btn:active { transform: scale(0.94); color: var(--accent); }
+  .settings-btn svg { width: 18px; height: 18px; }
+
+  .screen { display: none; flex-direction: column; min-height: calc(100dvh - 72px); }
+  .screen.active { display: flex; }
+
+  /* HOME */
+  #screen-home { padding: 28px 20px 24px; align-items: center; gap: 22px; }
+  .hero { text-align: center; padding: 12px 0; }
+  .hero-badge { display: inline-block; background: rgba(240,192,64,0.12); color: var(--accent); font-family: 'DM Mono', monospace; font-size: 11px; padding: 4px 12px; border-radius: 20px; margin-bottom: 14px; letter-spacing: 1px; text-transform: uppercase; }
+  .hero h1 { font-size: 34px; font-weight: 800; line-height: 1.1; letter-spacing: -1px; margin-bottom: 10px; }
+  .hero h1 span { color: var(--accent); }
+  .hero p { color: var(--muted); font-size: 15px; line-height: 1.5; max-width: 280px; margin: 0 auto; }
+
+  .email-chip { display: flex; align-items: center; gap: 10px; background: var(--surface); border: 1px solid rgba(240,192,64,0.2); border-radius: 12px; padding: 10px 14px; width: 100%; cursor: pointer; }
+  .email-chip:active { border-color: rgba(240,192,64,0.5); }
+  .email-chip svg { width: 18px; height: 18px; color: var(--accent); flex-shrink: 0; }
+  .email-chip-inner { flex: 1; min-width: 0; }
+  .email-chip-label { font-size: 11px; color: var(--muted); font-family: 'DM Mono', monospace; text-transform: uppercase; letter-spacing: 0.5px; }
+  .email-chip-value { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
+  .email-chip-edit { font-size: 11px; color: var(--accent); font-family: 'DM Mono', monospace; flex-shrink: 0; }
+
+  .steps-card { width: 100%; background: var(--surface); border-radius: var(--radius); border: 1px solid rgba(255,255,255,0.06); overflow: hidden; }
+  .step { display: flex; align-items: center; gap: 14px; padding: 13px 18px; border-bottom: 1px solid rgba(255,255,255,0.04); }
+  .step:last-child { border-bottom: none; }
+  .step-num { width: 28px; height: 28px; background: var(--surface2); border-radius: 8px; display: grid; place-items: center; font-size: 13px; font-weight: 700; color: var(--accent); flex-shrink: 0; }
+  .step-text { font-size: 14px; font-weight: 600; }
+  .step-sub { font-size: 12px; color: var(--muted); font-family: 'DM Mono', monospace; }
+
+  .btn-primary { width: 100%; padding: 18px; background: var(--accent); color: #0f1117; border: none; border-radius: var(--radius); font-family: 'Syne', sans-serif; font-size: 17px; font-weight: 800; letter-spacing: -0.3px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; transition: all 0.15s; position: relative; overflow: hidden; }
+  .btn-primary::after { content: ''; position: absolute; inset: 0; background: rgba(255,255,255,0.15); opacity: 0; transition: opacity 0.15s; }
+  .btn-primary:active::after { opacity: 1; }
+  .btn-primary:active { transform: scale(0.98); }
+  .btn-primary svg { width: 22px; height: 22px; }
+
+  /* SCAN */
+  #screen-scan { padding: 0; }
+  .scan-area { flex: 1; position: relative; background: #000; display: flex; align-items: center; justify-content: center; overflow: hidden; min-height: 58dvh; }
+  #video { width: 100%; height: 100%; object-fit: cover; }
+  #canvas-preview { display: none; }
+  .scan-corner { position: absolute; width: 32px; height: 32px; border-color: var(--accent); border-style: solid; border-width: 0; }
+  .scan-corner.tl { top: 20px; left: 20px; border-top-width: 3px; border-left-width: 3px; border-radius: 4px 0 0 0; }
+  .scan-corner.tr { top: 20px; right: 20px; border-top-width: 3px; border-right-width: 3px; border-radius: 0 4px 0 0; }
+  .scan-corner.bl { bottom: 20px; left: 20px; border-bottom-width: 3px; border-left-width: 3px; border-radius: 0 0 0 4px; }
+  .scan-corner.br { bottom: 20px; right: 20px; border-bottom-width: 3px; border-right-width: 3px; border-radius: 0 0 4px 0; }
+  .scan-counter { position: absolute; top: 16px; left: 50%; transform: translateX(-50%); background: rgba(15,17,23,0.85); border: 1px solid rgba(240,192,64,0.3); border-radius: 20px; padding: 5px 14px; font-size: 13px; font-weight: 700; font-family: 'DM Mono', monospace; color: var(--accent); backdrop-filter: blur(8px); pointer-events: none; }
+  .scan-controls { padding: 18px 20px; background: var(--bg); display: flex; flex-direction: column; gap: 12px; }
+  .btn-capture { width: 72px; height: 72px; border-radius: 50%; background: var(--accent); border: 4px solid var(--bg); box-shadow: 0 0 0 2px var(--accent); cursor: pointer; margin: 0 auto; display: grid; place-items: center; transition: transform 0.1s; }
+  .btn-capture:active { transform: scale(0.9); }
+  .btn-capture svg { width: 28px; height: 28px; color: #0f1117; }
+  .scan-hint { text-align: center; font-size: 13px; color: var(--muted); font-family: 'DM Mono', monospace; }
+  .btn-row { display: flex; gap: 10px; }
+  .btn-secondary { flex: 1; padding: 14px; background: var(--surface); border: 1px solid rgba(255,255,255,0.08); border-radius: var(--radius); color: var(--text); font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.15s; display: flex; align-items: center; justify-content: center; gap: 6px; }
+  .btn-secondary:active { transform: scale(0.97); background: var(--surface2); }
+  .btn-secondary svg { width: 16px; height: 16px; }
+  .btn-danger { border-color: rgba(224,80,80,0.3); color: var(--danger); }
+
+  /* REVIEW */
+  #screen-review { padding: 20px; gap: 18px; overflow-y: auto; }
+  .review-header h2 { font-size: 24px; font-weight: 800; letter-spacing: -0.5px; }
+  .review-header p { font-size: 13px; color: var(--muted); font-family: 'DM Mono', monospace; margin-top: 4px; }
+  .pages-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+  .page-thumb { position: relative; aspect-ratio: 3/4; border-radius: 12px; overflow: hidden; background: var(--surface); }
+  .page-thumb img { width: 100%; height: 100%; object-fit: cover; }
+  .page-num { position: absolute; top: 8px; left: 8px; background: rgba(15,17,23,0.85); color: var(--accent); font-family: 'DM Mono', monospace; font-size: 11px; font-weight: 500; padding: 2px 8px; border-radius: 6px; backdrop-filter: blur(4px); }
+  .page-delete { position: absolute; top: 8px; right: 8px; width: 28px; height: 28px; background: rgba(224,80,80,0.9); border: none; border-radius: 8px; display: grid; place-items: center; cursor: pointer; }
+  .page-delete:active { opacity: 0.7; }
+  .page-delete svg { width: 14px; height: 14px; color: white; }
+  .add-page-btn { aspect-ratio: 3/4; border-radius: 12px; border: 2px dashed rgba(240,192,64,0.3); background: rgba(240,192,64,0.04); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; cursor: pointer; color: var(--accent); font-size: 13px; font-weight: 600; }
+  .add-page-btn:active { background: rgba(240,192,64,0.1); }
+  .add-page-btn svg { width: 28px; height: 28px; opacity: 0.6; }
+
+  .form-group { display: flex; flex-direction: column; gap: 8px; }
+  .form-label { font-size: 12px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; color: var(--muted); font-family: 'DM Mono', monospace; }
+  .form-input { padding: 13px 16px; background: var(--surface); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; color: var(--text); font-family: 'DM Mono', monospace; font-size: 14px; outline: none; transition: border-color 0.2s; width: 100%; }
+  .form-input:focus { border-color: rgba(240,192,64,0.4); }
+
+  /* PROCESSING */
+  #screen-processing { align-items: center; justify-content: center; gap: 20px; text-align: center; }
+  .spinner { width: 52px; height: 52px; border: 3px solid var(--surface2); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .processing-title { font-size: 20px; font-weight: 800; }
+  .processing-sub { font-size: 13px; color: var(--muted); font-family: 'DM Mono', monospace; }
+
+  /* MODAL */
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 200; align-items: flex-end; backdrop-filter: blur(6px); }
+  .modal-overlay.open { display: flex; }
+  .modal { width: 100%; background: var(--surface); border-radius: 24px 24px 0 0; padding: 20px 20px calc(20px + var(--safe-bottom)); display: flex; flex-direction: column; gap: 18px; animation: slideUp 0.3s ease; }
+  @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+  .modal-handle { width: 36px; height: 4px; background: var(--surface2); border-radius: 2px; margin: 0 auto -4px; }
+  .modal h3 { font-size: 20px; font-weight: 800; letter-spacing: -0.5px; }
+  .modal p { font-size: 13px; color: var(--muted); line-height: 1.5; }
+
+  /* TOAST */
+  .toast { position: fixed; bottom: calc(24px + var(--safe-bottom)); left: 50%; transform: translateX(-50%) translateY(100px); background: var(--surface2); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 12px 20px; font-size: 14px; font-weight: 600; z-index: 999; transition: transform 0.3s ease; white-space: nowrap; backdrop-filter: blur(16px); }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+  .toast.success { border-color: rgba(64,192,128,0.4); color: var(--success); }
+  .toast.error { border-color: rgba(224,80,80,0.4); color: var(--danger); }
+
+  #file-input { display: none; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="logo">
+    <div class="logo-icon">
+      <svg fill="none" stroke="#0f1117" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+        <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+      </svg>
+    </div>
+    <div>
+      <div class="logo-title">PakbonScan</div>
+      <div class="logo-sub">Wit Wognum B.V.</div>
+    </div>
+  </div>
+  <button class="settings-btn" onclick="openSettings()">
+    <svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="3"/>
+      <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>
+    </svg>
+  </button>
+</div>
+
+<!-- HOME -->
+<div class="screen active" id="screen-home">
+  <div class="hero">
+    <div class="hero-badge">Pakbon Scanner</div>
+    <h1>Scan &amp; Deel<br>als <span>PDF</span></h1>
+    <p>Fotografeer pakbonnen, bundel als PDF en mail in één tik via het iOS deelscherm.</p>
+  </div>
+
+  <div class="email-chip" onclick="openSettings()">
+    <svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+      <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/>
+    </svg>
+    <div class="email-chip-inner">
+      <div class="email-chip-label">Versturen naar</div>
+      <div class="email-chip-value" id="email-display">Klik om e-mailadres in te stellen</div>
+    </div>
+    <div class="email-chip-edit">Wijzig →</div>
+  </div>
+
+  <div class="steps-card">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div><div class="step-text">Scan pakbonnen</div><div class="step-sub">Camera of bibliotheek</div></div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div><div class="step-text">Controleer pagina's</div><div class="step-sub">Verwijder of voeg toe</div></div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div><div class="step-text">Tik op "PDF maken &amp; delen"</div><div class="step-sub">PDF wordt automatisch gebundeld</div></div>
+    </div>
+    <div class="step">
+      <div class="step-num">4</div>
+      <div><div class="step-text">iOS deelscherm → Mail</div><div class="step-sub">PDF zit er al als bijlage in</div></div>
+    </div>
+  </div>
+
+  <button class="btn-primary" onclick="startScan()">
+    <svg fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+      <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/>
+    </svg>
+    Beginnen met scannen
+  </button>
+</div>
+
+<!-- SCAN -->
+<div class="screen" id="screen-scan">
+  <div class="scan-area">
+    <video id="video" autoplay playsinline muted></video>
+    <canvas id="canvas-preview"></canvas>
+    <div class="scan-corner tl"></div><div class="scan-corner tr"></div>
+    <div class="scan-corner bl"></div><div class="scan-corner br"></div>
+    <div class="scan-counter" id="scan-counter">0 pagina's</div>
+  </div>
+  <div class="scan-controls">
+    <div class="scan-hint">Richt de camera op de pakbon en tik</div>
+    <button class="btn-capture" onclick="capturePhoto()">
+      <svg fill="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/></svg>
+    </button>
+    <div class="btn-row">
+      <button class="btn-secondary" onclick="openGallery()">
+        <svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+          <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
+        </svg>
+        Bibliotheek
+      </button>
+      <button class="btn-secondary" id="btn-verder" style="display:none" onclick="goToReview()">
+        <svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+        Verder (<span id="scan-count">0</span>)
+      </button>
+    </div>
+    <button class="btn-secondary btn-danger" onclick="cancelScan()">
+      <svg fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" viewBox="0 0 24 24">
+        <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+      </svg>
+      Annuleren
+    </button>
+  </div>
+</div>
+
+<!-- REVIEW -->
+<div class="screen" id="screen-review">
+  <div class="review-header">
+    <h2>Pagina's controleren</h2>
+    <p id="review-sub">0 pagina's</p>
+  </div>
+  <div class="pages-grid" id="pages-grid"></div>
+  <div class="form-group">
+    <label class="form-label" for="filename-input">Bestandsnaam PDF</label>
+    <input class="form-input" id="filename-input" type="text" placeholder="pakbon_20240422" autocorrect="off" autocapitalize="off" spellcheck="false">
+  </div>
+  <button class="btn-primary" onclick="buildAndShare()">
+    <svg fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+      <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+      <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+    </svg>
+    PDF maken &amp; delen
+  </button>
+  <button class="btn-secondary" onclick="showScreen('screen-scan'); startCamera()" style="margin-bottom:20px">
+    ← Meer pagina's scannen
+  </button>
+</div>
+
+<!-- PROCESSING -->
+<div class="screen" id="screen-processing">
+  <div class="spinner"></div>
+  <div class="processing-title" id="proc-title">PDF wordt gemaakt...</div>
+  <div class="processing-sub" id="proc-sub">Even geduld</div>
+</div>
+
+<!-- INSTELLINGEN MODAL -->
+<div class="modal-overlay" id="modal-settings">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <h3>Instellingen</h3>
+    <p>Stel het standaard e-mailadres in. Dit verschijnt alvast ingevuld in het deelscherm.</p>
+    <div class="form-group">
+      <label class="form-label" for="setting-email">E-mailadres ontvanger</label>
+      <input class="form-input" id="setting-email" type="email" placeholder="pakbonnen@witwognum.nl" autocorrect="off" autocapitalize="off" spellcheck="false">
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="setting-prefix">Voorvoegsel bestandsnaam</label>
+      <input class="form-input" id="setting-prefix" type="text" placeholder="pakbon" autocorrect="off" autocapitalize="off" spellcheck="false">
+    </div>
+    <button class="btn-primary" onclick="saveSettings()">Opslaan</button>
+    <button class="btn-secondary" onclick="closeSettings()" style="margin-bottom:4px">Annuleren</button>
+  </div>
+</div>
+
+<input type="file" id="file-input" accept="image/*" multiple>
+<div class="toast" id="toast"></div>
+
+<script>
+// ── INSTELLINGEN ──
+const STORAGE_KEY = 'pakbonscan_v1';
+let settings = { email: 'pakbonnen@witwognum.nl', prefix: 'pakbon' };
+
+function loadSettings() {
+  try {
+    const s = localStorage.getItem(STORAGE_KEY);
+    if (s) settings = { ...settings, ...JSON.parse(s) };
+  } catch(e) {}
+  updateEmailDisplay();
+}
+
+function saveSettings() {
+  settings.email  = document.getElementById('setting-email').value.trim();
+  settings.prefix = document.getElementById('setting-prefix').value.trim() || 'pakbon';
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(settings)); } catch(e) {}
+  updateEmailDisplay();
+  closeSettings();
+  showToast('Instellingen opgeslagen ✓', 'success');
+}
+
+function updateEmailDisplay() {
+  const el = document.getElementById('email-display');
+  el.textContent = settings.email || 'Klik om e-mailadres in te stellen';
+  el.style.color  = settings.email ? 'var(--text)' : 'var(--muted)';
+}
+
+function openSettings() {
+  document.getElementById('setting-email').value  = settings.email;
+  document.getElementById('setting-prefix').value = settings.prefix;
+  document.getElementById('modal-settings').classList.add('open');
+}
+function closeSettings() { document.getElementById('modal-settings').classList.remove('open'); }
+
+// ── STATE ──
+let pages  = [];
+let stream = null;
+
+// ── UTILS ──
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function showToast(msg, type = '') {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = `toast ${type} show`;
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+function generateFilename() {
+  const d = new Date().toISOString().slice(0,10).replace(/-/g,'');
+  return `${settings.prefix || 'pakbon'}_${d}`;
+}
+
+// ── CAMERA ──
+async function startCamera() {
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } }
+    });
+    document.getElementById('video').srcObject = stream;
+  } catch(e) {
+    showToast('Camera toegang geweigerd', 'error');
+    showScreen('screen-home');
+  }
+}
+
+function stopCamera() {
+  if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+}
+
+function startScan() {
+  showScreen('screen-scan');
+  startCamera();
+  updateScanUI();
+}
+
+function cancelScan() {
+  stopCamera(); pages = [];
+  showScreen('screen-home');
+}
+
+function capturePhoto() {
+  const video  = document.getElementById('video');
+  const canvas = document.getElementById('canvas-preview');
+  canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+  canvas.getContext('2d').drawImage(video, 0, 0);
+  pages.push(canvas.toDataURL('image/jpeg', 0.92));
+  updateScanUI();
+
+  // Flash effect
+  const flash = document.createElement('div');
+  flash.style.cssText = 'position:absolute;inset:0;background:#fff;opacity:0.5;pointer-events:none;z-index:5;transition:opacity 0.15s';
+  document.querySelector('.scan-area').appendChild(flash);
+  setTimeout(() => { flash.style.opacity = '0'; setTimeout(() => flash.remove(), 150); }, 50);
+  showToast(`Pagina ${pages.length} vastgelegd ✓`, 'success');
+}
+
+function updateScanUI() {
+  const n = pages.length;
+  document.getElementById('scan-counter').textContent = `${n} pagina${n !== 1 ? "'s" : ''}`;
+  document.getElementById('scan-count').textContent   = n;
+  document.getElementById('btn-verder').style.display = n > 0 ? 'flex' : 'none';
+}
+
+function openGallery() {
+  const input = document.getElementById('file-input');
+  input.onchange = (e) => {
+    const files = Array.from(e.target.files); let loaded = 0;
+    files.forEach(f => {
+      const r = new FileReader();
+      r.onload = ev => {
+        pages.push(ev.target.result);
+        if (++loaded === files.length) { updateScanUI(); showToast(`${files.length} foto${files.length !== 1 ? "'s" : ''} toegevoegd`, 'success'); }
+      };
+      r.readAsDataURL(f);
+    });
+    input.value = '';
+  };
+  input.click();
+}
+
+// ── REVIEW ──
+function goToReview() {
+  stopCamera();
+  showScreen('screen-review');
+  renderPages();
+  if (!document.getElementById('filename-input').value) {
+    document.getElementById('filename-input').value = generateFilename();
+  }
+}
+
+function renderPages() {
+  const grid = document.getElementById('pages-grid');
+  grid.innerHTML = '';
+  pages.forEach((src, i) => {
+    const div = document.createElement('div');
+    div.className = 'page-thumb';
+    div.innerHTML = `
+      <img src="${src}" alt="p${i+1}">
+      <div class="page-num">p. ${i+1}</div>
+      <button class="page-delete" onclick="deletePage(${i})">
+        <svg fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" viewBox="0 0 24 24">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>`;
+    grid.appendChild(div);
+  });
+
+  const add = document.createElement('div');
+  add.className = 'add-page-btn';
+  add.innerHTML = `<svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>Toevoegen`;
+  add.onclick = () => {
+    document.getElementById('file-input').onchange = (e) => {
+      Array.from(e.target.files).forEach(f => {
+        const r = new FileReader(); r.onload = ev => { pages.push(ev.target.result); renderPages(); }; r.readAsDataURL(f);
+      });
+      document.getElementById('file-input').value = '';
+    };
+    document.getElementById('file-input').click();
+  };
+  grid.appendChild(add);
+  document.getElementById('review-sub').textContent = `${pages.length} pagina${pages.length !== 1 ? "'s" : ''}`;
+}
+
+function deletePage(i) {
+  pages.splice(i, 1);
+  if (pages.length === 0) { showScreen('screen-scan'); startCamera(); return; }
+  renderPages();
+}
+
+// ── PDF BOUWEN & DELEN ──
+async function buildAndShare() {
+  if (pages.length === 0) { showToast("Geen pagina's", 'error'); return; }
+
+  const filename = (document.getElementById('filename-input').value.trim() || generateFilename())
+    .replace(/\.pdf$/i, '') + '.pdf';
+
+  showScreen('screen-processing');
+  document.getElementById('proc-title').textContent = 'PDF wordt gemaakt...';
+  document.getElementById('proc-sub').textContent   = `${pages.length} pagina's verwerken`;
+  await tick();
+
+  try {
+    const { jsPDF } = window.jspdf;
+    let pdf = null;
+
+    for (let i = 0; i < pages.length; i++) {
+      document.getElementById('proc-sub').textContent = `Pagina ${i+1} van ${pages.length}`;
+      await tick();
+
+      const img = new Image();
+      await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = pages[i]; });
+
+      const w = img.naturalWidth, h = img.naturalHeight;
+      const landscape = w > h;
+      const fmt = [w * 0.75, h * 0.75];
+
+      if (!pdf) {
+        pdf = new jsPDF({ orientation: landscape ? 'l' : 'p', unit: 'pt', format: fmt });
+      } else {
+        pdf.addPage(fmt, landscape ? 'l' : 'p');
+      }
+      pdf.addImage(pages[i], 'JPEG', 0, 0, fmt[0], fmt[1], '', 'FAST');
+    }
+
+    document.getElementById('proc-title').textContent = 'Deelscherm openen...';
+    document.getElementById('proc-sub').textContent   = 'Bijna klaar';
+    await tick();
+
+    const blob = new Blob([pdf.output('arraybuffer')], { type: 'application/pdf' });
+    const file = new File([blob], filename, { type: 'application/pdf' });
+
+    // Web Share API — werkt op iOS Safari
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      const shareData = { files: [file], title: filename };
+      // Als er een e-mailadres is ingesteld: zet dit in het tekstveld
+      // zodat de gebruiker het kan kopiëren/plakken in het Aan-veld
+      if (settings.email) shareData.text = settings.email;
+
+      try {
+        await navigator.share(shareData);
+        resetAfterShare();
+        return;
+      } catch(e) {
+        if (e.name === 'AbortError') { showScreen('screen-review'); return; }
+        // Andere fout → val terug op download
+      }
+    }
+
+    // Fallback voor niet-iOS browsers: gewone download
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename; a.click();
+    URL.revokeObjectURL(url);
+    resetAfterShare();
+    showToast('PDF gedownload ✓', 'success');
+
+  } catch(err) {
+    console.error(err);
+    showScreen('screen-review');
+    showToast('Fout bij maken PDF', 'error');
+  }
+}
+
+function resetAfterShare() {
+  pages = [];
+  document.getElementById('filename-input').value = '';
+  showScreen('screen-home');
+  showToast('Klaar! ✓', 'success');
+}
+
+function tick() { return new Promise(r => setTimeout(r, 30)); }
+
+// ── INIT ──
+loadSettings();
+document.getElementById('modal-settings').addEventListener('click', e => {
+  if (e.target === document.getElementById('modal-settings')) closeSettings();
+});
+</script>
+</body>
+</html>
